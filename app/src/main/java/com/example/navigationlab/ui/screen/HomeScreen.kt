@@ -1,4 +1,3 @@
-
 package com.example.navigationlab.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
@@ -24,11 +23,13 @@ import com.example.navigationlab.ui.home.HomeUiState
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
+    searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
     onOpenDetail: (Int) -> Unit,
     onOpenProfile: () -> Unit,
-    onOpenAbout: () -> Unit
+    onOpenAbout: () -> Unit,
+    onRetry: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -43,38 +44,31 @@ fun HomeScreen(
         )
 
         OutlinedTextField(
-            value = uiState.searchQuery,
+            value = searchQuery,
             onValueChange = onSearchQueryChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Cari mahasiswa") },
-            placeholder = {
-                Text("Masukkan nama atau email")
-            },
+            label = { Text("Cari profil") },
+            placeholder = { Text("Masukkan nama atau email") },
             singleLine = true
         )
-
-        Button(
-            onClick = onSearch,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isLoading
-        ) {
-            Text("Cari")
-        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
-                onClick = onOpenProfile
-            ) {
+            OutlinedButton(onClick = onOpenProfile) {
                 Text("Profile")
             }
 
-            OutlinedButton(
-                onClick = onOpenAbout
-            ) {
+            OutlinedButton(onClick = onOpenAbout) {
                 Text("About")
+            }
+
+            Button(
+                onClick = onRefresh,
+                enabled = !uiState.isLoading
+            ) {
+                Text("Refresh")
             }
         }
 
@@ -91,6 +85,9 @@ fun HomeScreen(
 
             uiState.error != null -> {
                 Text("Terjadi kesalahan: ${uiState.error}")
+                Button(onClick = onRetry) {
+                    Text("Coba Lagi")
+                }
             }
 
             uiState.students.isEmpty() -> {
@@ -106,14 +103,10 @@ fun HomeScreen(
                 ) {
                     items(uiState.students) { student ->
                         Button(
-                            onClick = {
-                                onOpenDetail(student.id)
-                            },
+                            onClick = { onOpenDetail(student.id) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                "ID: ${student.id} - ${student.name}"
-                            )
+                            Text("ID: ${student.id} - ${student.name}")
                         }
                     }
                 }

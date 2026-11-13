@@ -1,79 +1,101 @@
-
 package com.example.navigationlab.ui.home
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.navigationlab.data.repository.StudentRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 class HomeViewModel(
-    private val repository: StudentRepository = StudentRepository()
+    private val repository: StudentRepository
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(HomeUiState())
-        private set
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     init {
-        loadStudents()
+        observeSearch()
     }
 
-    fun updateSearchQuery(query: String) {
-        uiState = uiState.copy(
-            searchQuery = query
-        )
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
     }
 
-    fun loadStudents() {
-        uiState = uiState.copy(
-            isLoading = true,
-            error = null
-        )
+    @OptIn(FlowPreview::class)
+    private fun observeSearch() {
+        viewModelScope.launch {
+            searchQuery
+                .debounce(500)
+                .distinctUntilChanged()
+                .collectLatest { query ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = true,
+                        error = null
+                    )
+                    try {
+                        val data = if (query.isBlank()) {
+                            repository.getStudents()
+                        } else {
+                            repository.searchStudents(query)
+                        }
+                        _uiState.value = HomeUiState(students = data)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _uiState.value = HomeUiState(
+                            error = e.message ?: "Pencarian gagal"
+                        )
+                    }
+                }
+        }
+    }
 
-        repository.getStudents { result ->
-            result.onSuccess { students ->
-                uiState = uiState.copy(
-                    students = students,
-                    isLoading = false,
-                    error = null
-                )
-            }
-
-            result.onFailure { error ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    error = error.message ?: "Terjadi kesalahan"
+    fun retry() {
+        val query = searchQuery.value
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val data = if (query.isBlank()) {
+                    repository.getStudents()
+                } else {
+                    repository.searchStudents(query)
+                }
+                _uiState.value = HomeUiState(students = data)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = HomeUiState(
+                    error = e.message ?: "Request gagal"
                 )
             }
         }
     }
-
-    fun searchStudents() {
-        val query = uiState.searchQuery.trim()
-
-        if (query.isEmpty()) {
-            loadStudents()
-            return
-        }
-
-        uiState = uiState.copy(
-            isLoading = true,
-            error = null
-        )
-
-        repository.searchStudents(query) { result ->
-            result.onSuccess { students ->
-                uiState = uiState.copy(
-                    students = students,
-                    isLoading = false,
-                    error = null
-                )
-            }
-
-            result.onFailure { error ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    error = error.message ?: "Pencarian gagal"
+    fun refresh() {
+        val query = searchQuery.value
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val data = if (query.isBlank()) {
+                    repository.getStudents()
+                } else {
+                    repository.searchStudents(query)
+                }
+                _uiState.value = HomeUiState(students = data)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = HomeUiState(
+                    error = e.message ?: "Refresh gagal"
                 )
             }
         }

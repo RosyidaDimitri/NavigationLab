@@ -1,42 +1,36 @@
 
 package com.example.navigationlab.ui.detail
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.navigationlab.data.repository.StudentRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class DetailViewModel(
-    private val studentId: Int,
-    private val repository: StudentRepository = StudentRepository()
+    private val repository: StudentRepository
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(DetailUiState())
-        private set
+    private val _uiState = MutableStateFlow(DetailUiState())
+    val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
-    init {
-        loadStudent()
-    }
+    fun loadStudent(id: Int) {
+        viewModelScope.launch {
+            _uiState.value = DetailUiState(isLoading = true)
 
-    fun loadStudent() {
-        uiState = uiState.copy(
-            isLoading = true,
-            error = null
-        )
+            try {
+                val student = repository.getStudent(id)
+                _uiState.value = DetailUiState(student = student)
 
-        repository.getStudent(studentId) { result ->
-            result.onSuccess { student ->
-                uiState = DetailUiState(
-                    student = student,
-                    isLoading = false
-                )
-            }
+            } catch (e: CancellationException) {
+                throw e
 
-            result.onFailure { error ->
-                uiState = DetailUiState(
-                    isLoading = false,
-                    error = error.message ?: "Terjadi kesalahan"
+            } catch (e: Exception) {
+                _uiState.value = DetailUiState(
+                    errorMessage = e.message ?: "Data tidak tersedia"
                 )
             }
         }

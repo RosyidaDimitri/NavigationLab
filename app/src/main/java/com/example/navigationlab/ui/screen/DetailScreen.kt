@@ -1,4 +1,3 @@
-
 package com.example.navigationlab.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +16,8 @@ import com.example.navigationlab.ui.detail.DetailUiState
 @Composable
 fun DetailScreen(
     uiState: DetailUiState,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onRetry: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -36,8 +36,11 @@ fun DetailScreen(
                 Text("Memuat detail mahasiswa...")
             }
 
-            uiState.error != null -> {
-                Text("Terjadi kesalahan: ${uiState.error}")
+            uiState.errorMessage != null -> {
+                Text("Terjadi kesalahan: ${uiState.errorMessage}")
+                Button(onClick = onRetry) {
+                    Text("Coba Lagi")
+                }
             }
 
             uiState.student != null -> {
